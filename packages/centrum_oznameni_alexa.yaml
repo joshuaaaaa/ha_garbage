@@ -1,0 +1,148 @@
+####################################################
+#                                                  #
+#   Centrum oznámení Alexa – sdílený skript pro    #
+#   hlasová hlášení (spotřebiče, svoz odpadu,      #
+#   budoucí použití). Hlasitost / prodleva /       #
+#   zařízení se nastavují tady na jednom místě,    #
+#   místo aby se duplikovaly v každé kartě –       #
+#   jedna změna se propíše všude.                  #
+#                                                  #
+#   Tento soubor je VOLITELNÝ: package svozu       #
+#   odpadu ho potřebuje jen tehdy, když je         #
+#   hlasový kanál nastavený na „Alexa". Pro        #
+#   variantu „TTS" (Google, Piper, …) nebo         #
+#   „Vypnuto" ho kopírovat nemusíš.                #
+#                                                  #
+#   POZNÁMKA: časová okna (kdy se smí hlásit)      #
+#   zůstávají u jednotlivých karet, protože nejsou #
+#   všude stejná (např. trouba a pračka mají jiná  #
+#   pravidla než svoz odpadu).                     #
+#                                                  #
+####################################################
+
+# POZOR: výchozí reproduktor Alexa je v tomto souboru na DVOU místech
+# (v poli „cil" a v proměnné „skutecny_cil" ve skriptu níže) – když ho měníš,
+# změň ho na obou. Většinou ho ale měnit nemusíš: volající si zařízení může
+# předat parametrem.
+
+input_datetime:
+  alexa_oznameni_zacatek:
+    name: "Oznámení Alexa – začátek časového okna"
+    icon: mdi:clock-start
+    has_time: true
+    has_date: false
+
+  alexa_oznameni_konec:
+    name: "Oznámení Alexa – konec časového okna"
+    icon: mdi:clock-end
+    has_time: true
+    has_date: false
+
+input_number:
+  alexa_hlasitost_oznameni:
+    name: "Oznámení Alexa – hlasitost hlášení"
+    icon: mdi:volume-high
+    min: 0
+    max: 1
+    step: 0.01
+    initial: 0.5
+
+  alexa_hlasitost_obnoveni:
+    name: "Oznámení Alexa – hlasitost po hlášení"
+    icon: mdi:volume-medium
+    min: 0
+    max: 1
+    step: 0.01
+    initial: 0.1
+
+  alexa_prodleva_pred_obnovenim:
+    name: "Oznámení Alexa – prodleva před vrácením hlasitosti"
+    icon: mdi:timer-outline
+    min: 0
+    max: 30
+    step: 1
+    initial: 12
+
+script:
+  hlasove_oznameni_alexa:
+    alias: "Centrum oznámení – hlasové hlášení Alexa"
+    description: >-
+      Sdílený skript pro hlasová hlášení na Alexe: zvýší hlasitost, přehraje
+      zprávu, počká a hlasitost zase sníží. Používají ho všechny karty
+      spotřebičů i package svozu odpadu. Výchozí hlasitost / prodleva /
+      zařízení se berou z pomocníků v tomto souboru, ale každé volání si může
+      předat vlastní hodnoty, pokud potřebuje něco jiného.
+    fields:
+      zprava:
+        name: Zpráva
+        description: Text, který má Alexa přečíst
+        required: true
+        selector:
+          text:
+      cil:
+        name: Zařízení Alexa (volitelné)
+        description: >-
+          Seznam media_player zařízení Alexa, na kterých se má hlásit. Když se
+          vynechá, použije se výchozí zařízení nastavené v tomto souboru.
+        required: false
+        default:
+          - media_player.alexa_obyvak # ← tvoje výchozí Alexa
+        selector:
+          entity:
+            domain: media_player
+            multiple: true
+      hlasitost_hlaseni:
+        name: Hlasitost hlášení (volitelné)
+        description: Když se vynechá, použije se input_number.alexa_hlasitost_oznameni
+        required: false
+        selector:
+          number:
+            min: 0
+            max: 1
+            step: 0.01
+      hlasitost_obnoveni:
+        name: Hlasitost po hlášení (volitelné)
+        description: Když se vynechá, použije se input_number.alexa_hlasitost_obnoveni
+        required: false
+        selector:
+          number:
+            min: 0
+            max: 1
+            step: 0.01
+      prodleva:
+        name: Prodleva před vrácením hlasitosti v sekundách (volitelné)
+        description: Když se vynechá, použije se input_number.alexa_prodleva_pred_obnovenim
+        required: false
+        selector:
+          number:
+            min: 0
+            max: 60
+            step: 1
+    sequence:
+      - variables:
+          skutecny_cil: "{{ cil | default(['media_player.alexa_obyvak'], true) }}" # ← tvoje výchozí Alexa
+      - service: media_player.volume_set
+        target:
+          entity_id: "{{ skutecny_cil }}"
+        data:
+          volume_level: >-
+            {{ hlasitost_hlaseni | default(states('input_number.alexa_hlasitost_oznameni') | float(0.5), true) | float(0.5) }}
+      - delay:
+          seconds: 2
+      - service: notify.alexa_media
+        continue_on_error: true
+        data:
+          target: "{{ skutecny_cil }}"
+          data:
+            type: announce
+            method: spoken
+          message: "{{ zprava }}"
+      - delay:
+          seconds: >-
+            {{ prodleva | default(states('input_number.alexa_prodleva_pred_obnovenim') | int(12), true) | int(12) }}
+      - service: media_player.volume_set
+        target:
+          entity_id: "{{ skutecny_cil }}"
+        data:
+          volume_level: >-
+            {{ hlasitost_obnoveni | default(states('input_number.alexa_hlasitost_obnoveni') | float(0.1), true) | float(0.1) }}

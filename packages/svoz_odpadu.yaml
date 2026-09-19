@@ -1,0 +1,686 @@
+####################################################################
+# Package: Svoz odpadu                                             #
+# Autor: Simonz82, na základech od Saveria Gravagnoly a Agostina   #
+#        Pitasiho                                                  #
+# Inspirace: http://domoticamente.it a                             #
+#            https://github.com/scheccia1/hagarbage                #
+# Česká verze a rozšíření (kalendář, vyskakovací oznámení,         #
+# akční tlačítka v notifikaci, odložení, TTS).                     #
+#                                                                  #
+# VOLITELNÁ ZÁVISLOST: pokud chceš hlasové hlášení přes Alexu,     #
+# zkopíruj i druhý soubor z tohoto repozitáře,                     #
+# packages/centrum_oznameni_alexa.yaml (obsahuje sdílený skript    #
+# script.hlasove_oznameni_alexa). Bez něj funguje všechno ostatní  #
+# — stačí v nastavení přepnout hlasový kanál na „TTS" nebo         #
+# „Vypnuto".                                                       #
+# Kompatibilní s HA 2025–2026                                      #
+####################################################################
+
+homeassistant:
+  customize:
+    # Sekce slouží jen k definici YAML ANCHORŮ (trik „package.node_anchors")
+    package.node_anchors:
+      customize: &customize
+        package: "Svoz odpadu"
+        author: "Simonz82, Saverio Gravagnola, Agostino Pitasi"
+        reference: "WebSite: www.domoticamente.it, https://github.com/Simonz82/ha_garbage, https://github.com/scheccia1/hagarbage"
+
+      #########################################################
+      # NASTAVENÍ, KTERÉ SI UPRAV PODLE SVÝCH ENTIT            #
+      #########################################################
+      setting:
+        # Nahraď svými zařízeními pro push oznámení (Companion app)
+        Zarizeni pro push 1: &push1 mobile_app_muj_telefon # např. tvůj mobil
+        Zarizeni pro push 2: &push2 mobile_app_druhy_telefon # druhý mobil, volitelné
+
+        # Kalendář, do kterého se má svoz zapisovat (volitelné).
+        # Vytvoř si ho v Nastavení → Zařízení a služby → Přidat integraci →
+        # „Místní kalendář" (Local Calendar) a název dej např. „Svoz odpadu".
+        Kalendar pro svoz: &kalendar calendar.svoz_odpadu
+
+        # Hlasové hlášení přes TTS (použije se, když je hlasový kanál = TTS).
+        # Nahraď svým reproduktorem a svou TTS službou.
+        Prehravac pro TTS: &tts_prehravac media_player.obyvak
+        TTS entita: &tts_entita tts.google_cloud # např. tts.google_translate_cs, tts.piper
+
+        # Názvy druhů odpadu – měnit nemusíš, jsou to jen texty, které se
+        # zobrazují. POZOR: pokud je měníš, nech vždy emoji + jeden znak
+        # (mezeru) před názvem – šablony ořezávají první dva znaky.
+        Odpad 1: &odpad1 "♻ Směsný odpad"
+        Odpad 2: &odpad2 "🍌 Bioodpad"
+        Odpad 3: &odpad3 "🔪 Bio a směsný"
+        Odpad 4: &odpad4 "📰 Papír"
+        Odpad 5: &odpad5 "🍶 Sklo"
+        Odpad 6: &odpad6 "🥛 Plast"
+        Odpad 7: &odpad7 "🤷‍Nic"
+
+########################################################################################################################
+#                                                      POZOR!                                                          #
+#                     POD TĚMITO ŘÁDKY NIC NEMĚŇ, POKUD SI NEJSI JISTÝ, CO DĚLÁŠ.                                      #
+#                  VŠECHNY PARAMETRY POTŘEBNÉ KE SPRÁVNÉMU BĚHU JSOU POUZE V SEKCI VÝŠE.                               #
+########################################################################################################################
+
+###########
+# BOOLEAN #
+###########
+input_boolean:
+  svoz_odpadu_k_oznameni:
+    name: Svoz odpadu – připomínat
+    icon: mdi:bell
+
+  svoz_odpadu_vyneseno:
+    name: Svoz odpadu – popelnice vynesena
+    icon: mdi:check-circle-outline
+
+  svoz_odpadu_vyskakovaci_oznameni:
+    name: Svoz odpadu – vyskakovací oznámení v HA
+    icon: mdi:message-alert-outline
+
+  svoz_odpadu_ranni_pripominka:
+    name: Svoz odpadu – ranní připomínka v den svozu
+    icon: mdi:weather-sunset-up
+
+  svoz_odpadu_zapis_do_kalendare:
+    name: Svoz odpadu – zapisovat do kalendáře
+    icon: mdi:calendar-plus
+
+  svoz_odpadu_test_oznameni:
+    name: Svoz odpadu – test oznámení
+    icon: mdi:test-tube
+
+##########
+# NUMBER #
+##########
+# Hlasitost / prodleva hlášení Alexy NEJSOU tady: berou se ze sdílených
+# pomocníků v centrum_oznameni_alexa.yaml (viz výše). Tady zůstává jen
+# frekvence připomínky, která je specifická pro tuto kartu.
+input_number:
+  frekvence_oznameni_svoz_odpadu:
+    name: Svoz odpadu – frekvence připomínek
+    min: 5
+    max: 60
+    step: 5
+    unit_of_measurement: "min"
+    icon: mdi:timer-sync
+    initial: 15
+
+############
+# DATETIME #
+############
+input_datetime:
+  svoz_odpadu_zacatek_oznameni:
+    name: Svoz odpadu – začátek připomínek
+    has_time: true
+    has_date: false
+    icon: mdi:timer-music
+    initial: "06:00:00"
+
+  svoz_odpadu_konec_oznameni:
+    name: Svoz odpadu – konec připomínek
+    has_time: true
+    has_date: false
+    icon: mdi:timer-off
+    initial: "23:00:00"
+
+  svoz_odpadu_cas_ranni_pripominky:
+    name: Svoz odpadu – čas ranní připomínky
+    has_time: true
+    has_date: false
+    icon: mdi:alarm
+    initial: "06:30:00"
+
+  svoz_odpadu_odlozeno_do:
+    name: Svoz odpadu – připomínka odložena do
+    has_time: true
+    has_date: true
+    icon: mdi:alarm-snooze
+
+##########
+# SELECT #
+##########
+input_select:
+  # Každý pomocník = druh odpadu, který se v ten den SVÁŽÍ.
+  # Karta pak sama počítá, co se má vystavit dnes večer (tj. svoz zítra).
+  svoz_odpadu_po:
+    name: Svoz v pondělí
+    icon: mdi:delete-empty
+    options: [*odpad1, *odpad2, *odpad3, *odpad4, *odpad5, *odpad6, *odpad7]
+  svoz_odpadu_ut:
+    name: Svoz v úterý
+    icon: mdi:delete-empty
+    options: [*odpad1, *odpad2, *odpad3, *odpad4, *odpad5, *odpad6, *odpad7]
+  svoz_odpadu_st:
+    name: Svoz ve středu
+    icon: mdi:delete-empty
+    options: [*odpad1, *odpad2, *odpad3, *odpad4, *odpad5, *odpad6, *odpad7]
+  svoz_odpadu_ct:
+    name: Svoz ve čtvrtek
+    icon: mdi:delete-empty
+    options: [*odpad1, *odpad2, *odpad3, *odpad4, *odpad5, *odpad6, *odpad7]
+  svoz_odpadu_pa:
+    name: Svoz v pátek
+    icon: mdi:delete-empty
+    options: [*odpad1, *odpad2, *odpad3, *odpad4, *odpad5, *odpad6, *odpad7]
+  svoz_odpadu_so:
+    name: Svoz v sobotu
+    icon: mdi:delete-empty
+    options: [*odpad1, *odpad2, *odpad3, *odpad4, *odpad5, *odpad6, *odpad7]
+  svoz_odpadu_ne:
+    name: Svoz v neděli
+    icon: mdi:delete-empty
+    options: [*odpad1, *odpad2, *odpad3, *odpad4, *odpad5, *odpad6, *odpad7]
+
+  svoz_odpadu_hlasovy_kanal:
+    name: Svoz odpadu – hlasové hlášení
+    icon: mdi:account-voice
+    options:
+      - Vypnuto
+      - Alexa
+      - TTS
+    initial: Alexa
+
+####################
+# ŠABLONOVÉ SENZORY #
+####################
+# Pomocná makra: NEODPAD = hodnoty, které znamenají „dnes nic".
+# Druh odpadu se z pomocníka získává oříznutím emoji (první dva znaky),
+# ale jen když pomocník opravdu má platný stav.
+template:
+  - sensor:
+      # 1) Co vystavit DNES (= co se sváží zítra) -> sensor.svoz_odpadu.
+      #    Tohle je hlavní entita karty.
+      - name: Svoz odpadu
+        unique_id: svoz_odpadu_dnes_vystavit
+        state: >-
+          {% set kody = ['po','ut','st','ct','pa','so','ne'] %}
+          {% set v = states('input_select.svoz_odpadu_' + kody[(now().weekday() + 1) % 7]) %}
+          {{ 'Nic' if v in ['unknown', 'unavailable', 'none', ''] else v[2:] }}
+        icon: mdi:trash-can-outline
+        attributes:
+          # co se sváží dnes ráno (pro informaci / ranní připomínku)
+          svoz_dnes: >-
+            {% set kody = ['po','ut','st','ct','pa','so','ne'] %}
+            {% set v = states('input_select.svoz_odpadu_' + kody[now().weekday()]) %}
+            {{ 'Nic' if v in ['unknown', 'unavailable', 'none', ''] else v[2:] }}
+          # plán na dalších 7 dní jako seznam „Pondělí: Plast"
+          plan_tydne: >-
+            {% set kody = ['po','ut','st','ct','pa','so','ne'] %}
+            {% set nazvy = ['Pondělí','Úterý','Středa','Čtvrtek','Pátek','Sobota','Neděle'] %}
+            {% set ns = namespace(radky=[]) %}
+            {% for i in range(0, 7) %}
+              {% set d = (now() + timedelta(days=i)).weekday() %}
+              {% set v = states('input_select.svoz_odpadu_' + kody[d]) %}
+              {% set druh = 'Nic' if v in ['unknown', 'unavailable', 'none', ''] else v[2:] %}
+              {% set ns.radky = ns.radky + [nazvy[d] ~ ': ' ~ druh] %}
+            {% endfor %}
+            {{ ns.radky }}
+
+      # 2) Název dnešního dne -> sensor.den_v_tydnu (např. „Pondělí")
+      - name: Den v týdnu
+        unique_id: svoz_odpadu_den_v_tydnu
+        state: >-
+          {% set nazvy = ['Pondělí','Úterý','Středa','Čtvrtek','Pátek','Sobota','Neděle'] %}
+          {{ nazvy[now().weekday()] }}
+        icon: mdi:calendar
+
+      # 3) Den svozu (= zítřek) -> sensor.den_svozu (např. „Úterý")
+      - name: Den svozu
+        unique_id: svoz_odpadu_den_svozu
+        state: >-
+          {% set nazvy = ['Pondělí','Úterý','Středa','Čtvrtek','Pátek','Sobota','Neděle'] %}
+          {{ nazvy[(now().weekday() + 1) % 7] }}
+        icon: mdi:truck-check-outline
+
+      # 4) Nejbližší svoz -> sensor.pristi_svoz.
+      #    Prohledá následujících 8 dní a najde první den, kdy se něco sváží.
+      #    Stav = druh odpadu, atributy = za kolik dní, datum a hezký popis
+      #    („Plast · zítra (úterý)"), který zobrazuje karta.
+      - name: Příští svoz
+        unique_id: svoz_odpadu_pristi_svoz
+        icon: mdi:truck-fast-outline
+        state: >-
+          {% set kody = ['po','ut','st','ct','pa','so','ne'] %}
+          {% set ns = namespace(druh='Nic', hotovo=false) %}
+          {% for i in range(0, 8) if not ns.hotovo %}
+            {% set v = states('input_select.svoz_odpadu_' + kody[(now() + timedelta(days=i)).weekday()]) %}
+            {% set druh = 'Nic' if v in ['unknown', 'unavailable', 'none', ''] else v[2:] %}
+            {% if druh != 'Nic' %}
+              {% set ns.druh = druh %}
+              {% set ns.hotovo = true %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.druh }}
+        attributes:
+          za_dni: >-
+            {% set kody = ['po','ut','st','ct','pa','so','ne'] %}
+            {% set ns = namespace(dni=-1, hotovo=false) %}
+            {% for i in range(0, 8) if not ns.hotovo %}
+              {% set v = states('input_select.svoz_odpadu_' + kody[(now() + timedelta(days=i)).weekday()]) %}
+              {% set druh = 'Nic' if v in ['unknown', 'unavailable', 'none', ''] else v[2:] %}
+              {% if druh != 'Nic' %}
+                {% set ns.dni = i %}
+                {% set ns.hotovo = true %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.dni }}
+          datum: >-
+            {% set kody = ['po','ut','st','ct','pa','so','ne'] %}
+            {% set ns = namespace(datum='', hotovo=false) %}
+            {% for i in range(0, 8) if not ns.hotovo %}
+              {% set den = now() + timedelta(days=i) %}
+              {% set v = states('input_select.svoz_odpadu_' + kody[den.weekday()]) %}
+              {% set druh = 'Nic' if v in ['unknown', 'unavailable', 'none', ''] else v[2:] %}
+              {% if druh != 'Nic' %}
+                {% set ns.datum = den.strftime('%d.%m.%Y') %}
+                {% set ns.hotovo = true %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.datum }}
+          popis: >-
+            {% set kody = ['po','ut','st','ct','pa','so','ne'] %}
+            {% set nazvy = ['pondělí','úterý','středa','čtvrtek','pátek','sobota','neděle'] %}
+            {% set ns = namespace(popis='nic naplánováno', hotovo=false) %}
+            {% for i in range(0, 8) if not ns.hotovo %}
+              {% set den = now() + timedelta(days=i) %}
+              {% set v = states('input_select.svoz_odpadu_' + kody[den.weekday()]) %}
+              {% set druh = 'Nic' if v in ['unknown', 'unavailable', 'none', ''] else v[2:] %}
+              {% if druh != 'Nic' %}
+                {% if i == 0 %}{% set kdy = 'dnes' %}
+                {% elif i == 1 %}{% set kdy = 'zítra' %}
+                {% elif i < 5 %}{% set kdy = 'za ' ~ i ~ ' dny' %}
+                {% else %}{% set kdy = 'za ' ~ i ~ ' dní' %}
+                {% endif %}
+                {% set ns.popis = druh ~ ' · ' ~ kdy ~ ' (' ~ nazvy[den.weekday()] ~ ')' %}
+                {% set ns.hotovo = true %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.popis }}
+
+  - binary_sensor:
+      # Svítí, když se dnes večer má něco vystavit a ještě to není potvrzené.
+      - name: Dnes vystavit popelnici
+        unique_id: svoz_odpadu_dnes_vystavit_bs
+        state: >-
+          {{ states('sensor.svoz_odpadu') not in ['Nic', 'unknown', 'unavailable']
+             and is_state('input_boolean.svoz_odpadu_vyneseno', 'off') }}
+        icon: mdi:trash-can
+
+####################
+# SKUPINA OZNÁMENÍ #
+####################
+notify:
+  - name: Svoz odpadu telefony
+    platform: group
+    services:
+      - service: *push1
+      - service: *push2
+
+###########
+# SKRIPTY #
+###########
+script:
+  # Jeden společný skript pro všechna oznámení o svozu: push do telefonů
+  # (s tlačítky „Vyneseno" / „Odložit o hodinu" a s obrázkem podle druhu
+  # odpadu), vyskakovací oznámení v HA a hlasové hlášení (Alexa nebo TTS).
+  svoz_odpadu_oznamit:
+    alias: "Svoz odpadu – odeslat oznámení"
+    mode: queued
+    max: 5
+    description: >-
+      Pošle oznámení o svozu do všech nakonfigurovaných kanálů. Používají ho
+      všechny automatizace tohoto packagu, aby se logika neduplikovala.
+    fields:
+      druh:
+        name: Druh odpadu
+        description: Např. „Plast" (bez emoji)
+        required: true
+        selector:
+          text:
+      titulek:
+        name: Titulek
+        required: true
+        selector:
+          text:
+      zprava:
+        name: Zpráva (push a vyskakovací oznámení)
+        required: true
+        selector:
+          text:
+      hlasova_zprava:
+        name: Zpráva pro hlasové hlášení
+        description: Když se vynechá, hlas se nepřehraje.
+        required: false
+        selector:
+          text:
+    sequence:
+      - variables:
+          obrazek: >-
+            {% set mapa = {
+              'Papír': 'papir', 'Sklo': 'sklo', 'Plast': 'plast',
+              'Bioodpad': 'bio', 'Bio a směsný': 'bio_a_smesny',
+              'Směsný odpad': 'smesny' } %}
+            /local/odpad/{{ mapa.get(druh, 'nic') }}.png
+
+      # 1) Push do telefonů s akčními tlačítky
+      - service: notify.svoz_odpadu_telefony
+        continue_on_error: true
+        data:
+          title: "{{ titulek }}"
+          message: "{{ zprava }}"
+          data:
+            tag: svoz_odpadu
+            group: svoz_odpadu
+            channel: Svoz odpadu
+            importance: high
+            color: "#22c55e"
+            notification_icon: mdi:trash-can
+            image: "{{ obrazek }}"
+            push:
+              interruption-level: time-sensitive
+            actions:
+              - action: SVOZ_VYNESENO
+                title: "Vyneseno ✅"
+              - action: SVOZ_ODLOZIT
+                title: "Odložit o hodinu"
+
+      # 2) Vyskakovací oznámení přímo v Home Assistantu (zvoneček)
+      - if:
+          - condition: state
+            entity_id: input_boolean.svoz_odpadu_vyskakovaci_oznameni
+            state: "on"
+        then:
+          - service: persistent_notification.create
+            continue_on_error: true
+            data:
+              notification_id: svoz_odpadu
+              title: "{{ titulek }}"
+              message: "{{ zprava }}"
+
+      # 3) Hlasové hlášení – podle zvoleného kanálu
+      - if:
+          - condition: template
+            value_template: "{{ hlasova_zprava is defined and hlasova_zprava | trim != '' }}"
+        then:
+          - choose:
+              # Alexa přes sdílený skript z centrum_oznameni_alexa.yaml
+              - conditions:
+                  - condition: state
+                    entity_id: input_select.svoz_odpadu_hlasovy_kanal
+                    state: Alexa
+                sequence:
+                  - service: script.hlasove_oznameni_alexa
+                    continue_on_error: true
+                    data:
+                      zprava: "{{ hlasova_zprava }}"
+              # Libovolný reproduktor přes TTS (Google, Piper, …)
+              - conditions:
+                  - condition: state
+                    entity_id: input_select.svoz_odpadu_hlasovy_kanal
+                    state: TTS
+                sequence:
+                  - service: tts.speak
+                    continue_on_error: true
+                    target:
+                      entity_id: *tts_entita
+                    data:
+                      media_player_entity_id: *tts_prehravac
+                      message: "{{ hlasova_zprava }}"
+
+  # Zruší připomínku na dnešek: skryje push i vyskakovací oznámení.
+  svoz_odpadu_potvrdit_vyneseni:
+    alias: "Svoz odpadu – potvrdit vynesení"
+    mode: single
+    sequence:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.svoz_odpadu_vyneseno
+      - service: notify.svoz_odpadu_telefony
+        continue_on_error: true
+        data:
+          message: clear_notification
+          data:
+            tag: svoz_odpadu
+      - service: persistent_notification.dismiss
+        continue_on_error: true
+        data:
+          notification_id: svoz_odpadu
+
+##################
+# AUTOMATIZACE   #
+##################
+automation:
+  # Zapne příznak „připomínat" na začátku časového okna
+  - alias: Svoz odpadu – zapnout připomínání
+    id: svoz_odpadu_zapnout_pripominani
+    mode: single
+    trigger:
+      - platform: time
+        at: input_datetime.svoz_odpadu_zacatek_oznameni
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.svoz_odpadu_k_oznameni
+
+  # Vypne příznak na konci časového okna
+  - alias: Svoz odpadu – vypnout připomínání
+    id: svoz_odpadu_vypnout_pripominani
+    mode: single
+    trigger:
+      - platform: time
+        at: input_datetime.svoz_odpadu_konec_oznameni
+    action:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.svoz_odpadu_k_oznameni
+      - service: persistent_notification.dismiss
+        continue_on_error: true
+        data:
+          notification_id: svoz_odpadu
+
+  # Opakovaná připomínka (push + vyskakovací + hlas), dokud je příznak
+  # zapnutý, jsme v časovém okně, dnes se opravdu něco vystavuje a popelnice
+  # ještě není označená jako vynesená.
+  - alias: Svoz odpadu – opakovaná připomínka
+    id: svoz_odpadu_opakovana_pripominka
+    mode: single
+
+    trigger:
+      - platform: time_pattern
+        minutes: "/5"
+
+    condition:
+      - condition: template
+        value_template: >
+          {{ (now().minute % (states('input_number.frekvence_oznameni_svoz_odpadu') | int(15))) == 0 }}
+      - condition: state
+        entity_id: input_boolean.svoz_odpadu_k_oznameni
+        state: "on"
+      - condition: state
+        entity_id: input_boolean.svoz_odpadu_vyneseno
+        state: "off"
+      - condition: time
+        after: input_datetime.svoz_odpadu_zacatek_oznameni
+        before: input_datetime.svoz_odpadu_konec_oznameni
+      # odložení („Odložit o hodinu" z notifikace)
+      - condition: template
+        value_template: >
+          {% set do = states('input_datetime.svoz_odpadu_odlozeno_do') %}
+          {{ do in ['unknown', 'unavailable', ''] or as_timestamp(do, 0) < as_timestamp(now()) }}
+      - condition: template
+        value_template: >
+          {{ states('sensor.svoz_odpadu') not in ['Nic', 'unknown', 'unavailable'] }}
+
+    action:
+      - service: script.svoz_odpadu_oznamit
+        data:
+          druh: "{{ states('sensor.svoz_odpadu') }}"
+          titulek: "🚮 Nezapomeň vynést odpad"
+          zprava: >-
+            Dnes večer vystav: {{ states('sensor.svoz_odpadu') }}.
+            Svoz je {{ states('sensor.den_svozu') | lower }}.
+          hlasova_zprava: >-
+            Nezapomeň vynést odpad. Dnes se vystavuje {{ states('sensor.svoz_odpadu') }}.
+
+  # Ranní připomínka v den svozu: „dnes ráno se sváží X" – hodí se, když
+  # popelnici večer zapomeneš vystavit a auto ještě nepřijelo.
+  - alias: Svoz odpadu – ranní připomínka v den svozu
+    id: svoz_odpadu_ranni_pripominka
+    mode: single
+    trigger:
+      - platform: time
+        at: input_datetime.svoz_odpadu_cas_ranni_pripominky
+    condition:
+      - condition: state
+        entity_id: input_boolean.svoz_odpadu_ranni_pripominka
+        state: "on"
+      - condition: template
+        value_template: >
+          {{ state_attr('sensor.svoz_odpadu', 'svoz_dnes') not in ['Nic', 'unknown', 'unavailable', none] }}
+    action:
+      - service: script.svoz_odpadu_oznamit
+        data:
+          druh: "{{ state_attr('sensor.svoz_odpadu', 'svoz_dnes') }}"
+          titulek: "🚛 Dnes se sváží odpad"
+          zprava: >-
+            Dnes ráno jede svoz: {{ state_attr('sensor.svoz_odpadu', 'svoz_dnes') }}.
+            Pokud popelnice ještě není venku, je nejvyšší čas.
+          hlasova_zprava: >-
+            Dnes ráno jede svoz. Sváží se {{ state_attr('sensor.svoz_odpadu', 'svoz_dnes') }}.
+
+  # Zápis svozu do kalendáře: každou noc (a po startu HA) založí celodenní
+  # událost na zítřejší den, pokud se zítra něco sváží. Běží jednou denně,
+  # takže se události neduplikují.
+  - alias: Svoz odpadu – zapsat do kalendáře
+    id: svoz_odpadu_zapsat_do_kalendare
+    mode: single
+    trigger:
+      - platform: time
+        at: "00:10:00"
+      - platform: homeassistant
+        event: start
+    condition:
+      - condition: state
+        entity_id: input_boolean.svoz_odpadu_zapis_do_kalendare
+        state: "on"
+      - condition: template
+        value_template: >
+          {{ states('sensor.svoz_odpadu') not in ['Nic', 'unknown', 'unavailable'] }}
+      # po startu HA nezakládej událost znovu, když už dnes vznikla
+      - condition: template
+        value_template: >
+          {{ this.attributes.last_triggered is none
+             or this.attributes.last_triggered.date() != now().date() }}
+    action:
+      - service: calendar.create_event
+        continue_on_error: true
+        target:
+          entity_id: *kalendar
+        data:
+          summary: "🚮 Svoz: {{ states('sensor.svoz_odpadu') }}"
+          description: >-
+            Popelnici vystav den předem večer.
+            Připomínku posílá Home Assistant (package Svoz odpadu).
+          start_date: "{{ (now() + timedelta(days=1)).strftime('%Y-%m-%d') }}"
+          end_date: "{{ (now() + timedelta(days=2)).strftime('%Y-%m-%d') }}"
+
+  # Reakce na tlačítka v push oznámení (Companion app)
+  - alias: Svoz odpadu – akce z oznámení
+    id: svoz_odpadu_akce_z_oznameni
+    mode: queued
+    max: 10
+    trigger:
+      - platform: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: SVOZ_VYNESENO
+        id: vyneseno
+      - platform: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: SVOZ_ODLOZIT
+        id: odlozit
+    action:
+      - choose:
+          - conditions:
+              - condition: trigger
+                id: vyneseno
+            sequence:
+              - service: script.svoz_odpadu_potvrdit_vyneseni
+          - conditions:
+              - condition: trigger
+                id: odlozit
+            sequence:
+              - service: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.svoz_odpadu_odlozeno_do
+                data:
+                  datetime: "{{ (now() + timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S') }}"
+              - service: persistent_notification.dismiss
+                continue_on_error: true
+                data:
+                  notification_id: svoz_odpadu
+
+  # Když potvrdíš vynesení přímo v kartě (přepínač), zmizí i oznámení
+  - alias: Svoz odpadu – úklid oznámení po potvrzení
+    id: svoz_odpadu_uklid_po_potvrzeni
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: input_boolean.svoz_odpadu_vyneseno
+        from: "off"
+        to: "on"
+    action:
+      - service: notify.svoz_odpadu_telefony
+        continue_on_error: true
+        data:
+          message: clear_notification
+          data:
+            tag: svoz_odpadu
+      - service: persistent_notification.dismiss
+        continue_on_error: true
+        data:
+          notification_id: svoz_odpadu
+
+  # Půlnoční reset: nový den = nová popelnice
+  - alias: Svoz odpadu – půlnoční reset
+    id: svoz_odpadu_pulnocni_reset
+    mode: single
+    trigger:
+      - platform: time
+        at: "00:01:00"
+    action:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.svoz_odpadu_vyneseno
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.svoz_odpadu_odlozeno_do
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d 00:00:00') }}"
+      - service: persistent_notification.dismiss
+        continue_on_error: true
+        data:
+          notification_id: svoz_odpadu
+
+  # Testovací oznámení – přepni input_boolean.svoz_odpadu_test_oznameni
+  # (je součástí tohoto packagu, nemusíš nic zakládat ručně).
+  - alias: Svoz odpadu – test oznámení
+    id: svoz_odpadu_test_oznameni
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: input_boolean.svoz_odpadu_test_oznameni
+        to: "on"
+    action:
+      - service: script.svoz_odpadu_oznamit
+        data:
+          druh: "{{ states('sensor.svoz_odpadu') }}"
+          titulek: "🧪 Test – svoz odpadu"
+          zprava: >-
+            Testovací oznámení. Dnes večer by se vystavovalo:
+            {{ states('sensor.svoz_odpadu') }}.
+          hlasova_zprava: >-
+            Toto je testovací hlášení. Dnes se vystavuje {{ states('sensor.svoz_odpadu') }}.
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.svoz_odpadu_test_oznameni

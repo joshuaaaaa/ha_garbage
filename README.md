@@ -1,132 +1,195 @@
-# ♻️ Raccolta Differenziata per Home Assistant
+# ♻️ Svoz odpadu pro Home Assistant
 
-Card e package per Home Assistant che gestiscono i giorni della raccolta differenziata: mostra un'immagine diversa in base al rifiuto del giorno, il giorno del ritiro, l'orario in cui esporre i bidoni, e manda un promemoria (notifica push + annuncio vocale su Alexa) finché non lo disattivi.
+Karta a package pro Home Assistant, které hlídají dny svozu odpadu: zobrazí obrázek podle druhu odpadu, den svozu, čas, kdy popelnici vystavit, odpočet do nejbližšího svozu — a posílají připomínku (push notifikace + vyskakovací oznámení v HA + hlasové hlášení), dokud ji nevypneš.
 
-Progetto storico ripreso da una card più vecchia che avevo condiviso tempo fa (con basi di Saverio Gravagnola e Agostino Pitasi — altri spunti su [domoticamente.it](http://domoticamente.it) e su [scheccia1/hagarbage](https://github.com/scheccia1/hagarbage)). Riscritto da zero il 18/09/2026: nuova card in stile "DashboardModern" (la stessa famiglia grafica delle mie altre card pubbliche), package YAML pulito e senza duplicazioni, immagini dei rifiuti ritagliate e rese più nitide.
+Starší projekt převzatý z karty, kterou jsem sdílel před časem (na základech od Saveria Gravagnoly a Agostina Pitasiho — další inspirace na [domoticamente.it](http://domoticamente.it) a v [scheccia1/hagarbage](https://github.com/scheccia1/hagarbage)). Přepsáno od nuly 18. 9. 2026: nová karta ve stylu „DashboardModern" (stejná grafická rodina jako moje další veřejné karty), čistý YAML package bez duplicit, ořezané a zostřené obrázky odpadu.
 
-Questa card fa parte della stessa famiglia grafica "DashboardModern" delle mie altre card pubbliche (elettrodomestici, energia, FritzBox, server HA, NAS, Proxmox, UPS) raccolte tutte insieme, con lo stesso stile visivo, nel repo **[smart-home-cards](https://github.com/Simonz82/smart-home-cards)**.
+Tato karta patří do stejné grafické rodiny „DashboardModern" jako moje ostatní veřejné karty (spotřebiče, energie, FritzBox, HA server, NAS, Proxmox, UPS) — všechny pohromadě, ve stejném vizuálním stylu, najdeš v repozitáři **[smart-home-cards](https://github.com/Simonz82/smart-home-cards)**.
 
-## Anteprima
+## Náhled
 
-**La card:**
+**Karta:**
 
-![Card raccolta differenziata](example/card-vista-principale.png)
+![Karta svozu odpadu](example/karta-hlavni-pohled.png)
 
-**Pulsante ingranaggio → impostazioni giorni:**
+**Tlačítko s ozubeným kolem → nastavení dnů:**
 
-![Popup impostazioni giorni](example/popup-impostazioni-giorni.png)
+![Okno s nastavením dnů](example/nastaveni-dnu.png)
 
-**Pulsante megafono (opzionale) → tua pagina notifiche Alexa condivisa:**
+**Tlačítko s megafonem (volitelné) → tvoje sdílená stránka s hlasovými oznámeními:**
 
-![Centro notifiche Alexa](example/megafono-centro-notifiche.png)
+![Centrum oznámení Alexa](example/centrum-oznameni-alexa.png)
 
-## Come funziona
+> Snímky obrazovky jsou ještě z původní italské verze — rozložení karty je stejné, jen texty jsou dnes české.
 
-- Ogni giorno la card mostra l'immagine del rifiuto che va buttato **oggi** (bidone/sacco corrispondente), il giorno della settimana e il giorno del ritiro di domani.
-- Un'automazione attiva un promemoria in una finestra oraria configurabile: finché è attivo, ogni tot minuti (a scelta) manda una notifica push e fa annunciare ad Alexa cosa buttare — a meno che oggi non ci sia nulla da buttare.
-- L'ingranaggio in alto a destra apre le impostazioni per assegnare un rifiuto ad ogni giorno della settimana.
-- Il megafono (opzionale) è pensato per chi vuole centralizzare in un'unica pagina le impostazioni di volume/orario degli annunci Alexa condivise fra più card (vedi sezione "Notifiche Alexa condivise" più sotto) — se non ti serve, semplicemente non lo configuri e non compare.
+## Jak to funguje
 
-## Installazione
+- Každý den karta ukáže obrázek odpadu, který se má **dnes večer vystavit** (tj. ten, který se sváží zítra), název dnešního dne, den svozu a odpočet do nejbližšího svozu („Plast · zítra (úterý)").
+- Automatizace zapne připomínku v nastavitelném časovém okně: dokud je aktivní, každých pár minut (podle tvého nastavení) přijde push notifikace, objeví se vyskakovací oznámení v Home Assistantu a případně se přehraje hlasové hlášení — pokud se dnes opravdu něco vystavuje.
+- V push notifikaci jsou tlačítka **„Vyneseno ✅"** a **„Odložit o hodinu"**, takže připomínku zastavíš přímo z mobilu. To samé umí i tlačítko dole na kartě.
+- Ozubené kolo vpravo nahoře otevře nastavení, kde přiřadíš druh odpadu každému dni v týdnu (dnešní den je v seznamu zvýrazněný).
+- Megafon (volitelný) je pro ty, kdo chtějí mít nastavení hlasitosti/času hlášení Alexy na jedné sdílené stránce pro víc karet (viz sekce „Sdílená hlasová oznámení" níže) — když ho nepotřebuješ, prostě ho nenastavíš a nezobrazí se.
 
-1. **Card**: in HA vai su Impostazioni → Dashboard → Risorse, e aggiungi il file [`dm-garbage-card.js`](dm-garbage-card.js) come risorsa JS. Il modo più semplice: copialo in `/config/www/dm-garbage-card.js` e aggiungi la risorsa `/local/dm-garbage-card.js` di tipo "Modulo JavaScript". Non serve nessuna dipendenza HACS: il file è autoconsistente.
+### Co je v české verzi navíc
 
-2. **Package**: copia [`packages/differenziata.yaml`](packages/differenziata.yaml) e [`packages/centro_notifiche_alexa.yaml`](packages/centro_notifiche_alexa.yaml) nella tua cartella `packages/` (se non hai ancora abilitato i package, aggiungi `packages: !include_dir_named packages` sotto `homeassistant:` in `configuration.yaml`). Il secondo file contiene lo script condiviso `script.notifica_vocale_alexa` che il primo usa per l'annuncio vocale — servono entrambi.
+| Funkce | Popis |
+|---|---|
+| 📅 **Zápis do kalendáře** | Každou noc se do tvého kalendáře (Místní kalendář / Local Calendar) založí celodenní událost „🚮 Svoz: Plast" na den svozu. Zapíná se přepínačem `input_boolean.svoz_odpadu_zapis_do_kalendare`. |
+| 🔔 **Vyskakovací oznámení v HA** | Kromě push notifikace se připomínka objeví i ve zvonečku Home Assistantu a sama zmizí, jakmile potvrdíš vynesení. Přepínač `input_boolean.svoz_odpadu_vyskakovaci_oznameni`. |
+| ✅ **Akční tlačítka v notifikaci** | „Vyneseno ✅" ukončí připomínání na dnešek, „Odložit o hodinu" ho jen odsune. O půlnoci se vše resetuje. |
+| 🖼️ **Obrázek v push notifikaci** | Notifikace na mobilu ukáže rovnou obrázek správné popelnice. |
+| 🚛 **Odpočet do příštího svozu** | Senzor `sensor.pristi_svoz` (druh odpadu + atributy `za_dni`, `datum`, `popis`) — karta ho zobrazuje v posledním řádku. |
+| 🌅 **Ranní připomínka v den svozu** | Volitelné upozornění ráno („Dnes ráno jede svoz: Plast"), kdyby popelnice zůstala uvnitř. Přepínač `input_boolean.svoz_odpadu_ranni_pripominka`. |
+| 🗣️ **Hlas i bez Alexy** | Hlasový kanál se přepíná pomocníkem `input_select.svoz_odpadu_hlasovy_kanal`: *Vypnuto*, *Alexa* nebo *TTS* (libovolný reproduktor přes Google/Piper/…). |
+| 🗑️ **Sedmý druh odpadu** | Přibyl obrázek pro směsný odpad (`smesny.png`), takže má obrázek každá volba. |
+| 🧪 **Testovací přepínač** | `input_boolean.svoz_odpadu_test_oznameni` je přímo součástí packagu — už si ho nemusíš zakládat ručně. |
 
-3. **Modifica solo queste righe** in `packages/differenziata.yaml` (in cima al file, sezione `setting`):
-   - `Device per notifica push 1/2`: le TUE entità `mobile_app_...` (companion app del telefono). Ne bastano 1: se non ti serve il secondo, elimina la riga e la corrispondente riga `service: *push2` più in basso nel blocco `notify:`.
-   - Il resto (etichette dei rifiuti) va bene così.
+## Instalace
 
-4. **Immagini**: copia la cartella [`www/rifiuti/`](www/rifiuti/) dentro la tua `/config/www/`. Sono le 6 immagini usate di default (Carta, Vetro, Plastica, Organico, Organico e Resto, Nulla) — puoi sostituirle con le tue, basta mantenere gli stessi nomi file o aggiornare i percorsi nella configurazione della card (punto 6).
+1. **Karta**: v HA jdi do Nastavení → Řídicí panely → Zdroje a přidej soubor [`dm-garbage-card.js`](dm-garbage-card.js) jako JS zdroj. Nejjednodušší způsob: zkopíruj ho do `/config/www/dm-garbage-card.js` a přidej zdroj `/local/dm-garbage-card.js` typu „JavaScriptový modul". Žádná závislost na HACS: soubor je soběstačný.
 
-5. **Helper di test (opzionale)**: se vuoi un pulsante per testare l'annuncio vocale senza aspettare, crea da UI (Impostazioni → Dispositivi e servizi → Helper → Interruttore) un helper con id `test_notifica` — attivandolo parte l'annuncio di prova.
+2. **Package**: zkopíruj [`packages/svoz_odpadu.yaml`](packages/svoz_odpadu.yaml) do své složky `packages/` (pokud ještě packages nepoužíváš, přidej `packages: !include_dir_named packages` pod `homeassistant:` v `configuration.yaml`). Soubor [`packages/centrum_oznameni_alexa.yaml`](packages/centrum_oznameni_alexa.yaml) je **volitelný** — potřebuješ ho jen tehdy, když chceš hlášení přes Alexu (obsahuje sdílený skript `script.hlasove_oznameni_alexa`).
 
-6. **Configura la card** nel tuo dashboard (modalità YAML):
+3. **Uprav jen tyhle řádky** v `packages/svoz_odpadu.yaml` (nahoře v sekci `setting`):
+   - `Zarizeni pro push 1/2`: TVOJE entity `mobile_app_...` (Companion app v telefonu). Stačí jedna: pokud druhou nepotřebuješ, smaž ten řádek i odpovídající řádek `service: *push2` níže v bloku `notify:`.
+   - `Kalendar pro svoz`: entita kalendáře, do kterého se má zapisovat (jen když chceš zápis do kalendáře — viz níže).
+   - `Prehravac pro TTS` a `TTS entita`: jen když chceš hlásit přes TTS místo Alexy.
+   - Zbytek (názvy druhů odpadu) můžeš nechat tak, jak je.
+
+4. **Obrázky**: zkopíruj složku [`www/odpad/`](www/odpad/) do svého `/config/www/`. Je v ní 7 výchozích obrázků (Papír, Sklo, Plast, Bioodpad, Bio a směsný, Směsný odpad, Nic) — můžeš je nahradit vlastními, jen zachovej stejné názvy souborů nebo uprav cesty v konfiguraci karty (bod 6).
+
+5. **Kalendář (volitelné)**: pokud chceš svozy vidět v kalendáři, přidej v Nastavení → Zařízení a služby → Přidat integraci → **Místní kalendář** kalendář s názvem např. „Svoz odpadu" (vznikne `calendar.svoz_odpadu`), nastav ho v sekci `setting` a zapni pomocníka „Svoz odpadu – zapisovat do kalendáře". Každou noc se pak založí celodenní událost na den svozu.
+
+6. **Nastav kartu** ve svém dashboardu (režim YAML):
    ```yaml
    type: custom:dm-garbage-card
-   entity: sensor.raccoltadifferenziata
-   weekday_entity: sensor.giornosettimana
-   pickup_day_entity: sensor.giornoritiro
-   expose_time_entity: input_datetime.raccolta_differenziata_notifiche_start_time
+   entity: sensor.svoz_odpadu
+   weekday_entity: sensor.den_v_tydnu
+   pickup_day_entity: sensor.den_svozu
+   next_pickup_entity: sensor.pristi_svoz
+   done_entity: input_boolean.svoz_odpadu_vyneseno
+   expose_time_entity: input_datetime.svoz_odpadu_zacatek_oznameni
+   calendar_path: /calendar
    state_images:
-     Carta: /local/rifiuti/carta.png
-     Vetro: /local/rifiuti/vetro.png
-     Plastica: /local/rifiuti/plastica.png
-     Organico: /local/rifiuti/organico.png
-     "Organico e Resto": /local/rifiuti/organicoeresto.png
-     Nulla: /local/rifiuti/nulla.png
+     "Papír": /local/odpad/papir.png
+     Sklo: /local/odpad/sklo.png
+     Plast: /local/odpad/plast.png
+     Bioodpad: /local/odpad/bio.png
+     "Bio a směsný": /local/odpad/bio_a_smesny.png
+     "Směsný odpad": /local/odpad/smesny.png
+     Nic: /local/odpad/nic.png
    settings_sections:
-     - title: Giorni raccolta
+     - title: Dny svozu
        rows:
-         - entity: input_select.raccolta_differenziata_lun
-           label: Martedì
-         - entity: input_select.raccolta_differenziata_mar
-           label: Mercoledì
-         - entity: input_select.raccolta_differenziata_mer
-           label: Giovedì
-         - entity: input_select.raccolta_differenziata_gio
-           label: Venerdì
-         - entity: input_select.raccolta_differenziata_ven
-           label: Sabato
-         - entity: input_select.raccolta_differenziata_sab
-           label: Domenica
-         - entity: input_select.raccolta_differenziata_dom
-           label: Lunedì
+         - entity: input_select.svoz_odpadu_po
+           label: Pondělí
+         - entity: input_select.svoz_odpadu_ut
+           label: Úterý
+         - entity: input_select.svoz_odpadu_st
+           label: Středa
+         - entity: input_select.svoz_odpadu_ct
+           label: Čtvrtek
+         - entity: input_select.svoz_odpadu_pa
+           label: Pátek
+         - entity: input_select.svoz_odpadu_so
+           label: Sobota
+         - entity: input_select.svoz_odpadu_ne
+           label: Neděle
    ```
-   Con questa configurazione l'ingranaggio apre una finestra **nativa** (nessuna dipendenza extra) con i 7 giorni, come nello screenshot sopra.
+   S touhle konfigurací otevře ozubené kolo **nativní** okno (bez jakékoli další závislosti) se všemi 7 dny, jak je vidět na snímku výše.
 
-### Notifiche Alexa condivise (opzionale, avanzato)
+   > Pomocník `input_select.svoz_odpadu_po` = **odpad, který se sváží v pondělí**. Co se má vystavit dnes večer, si karta dopočítá sama (bere svoz zítřejšího dne), takže dny nemusíš nikam posouvat.
 
-Il package chiama uno script condiviso (`script.notifica_vocale_alexa`, dentro `centro_notifiche_alexa.yaml`) invece di duplicare volume/dispositivo/orario in ogni card: così se hai altre card della stessa famiglia (elettrodomestici, ecc.) tutte condividono le stesse impostazioni Alexa, modificabili in un unico punto. Se vuoi anche tu un pulsante megafono che porti a QUELLA pagina di impostazioni condivise, aggiungi alla configurazione della card:
+### Volitelné parametry karty
+
+| Parametr | Co dělá |
+|---|---|
+| `next_pickup_entity` | Přidá řádek „Příští svoz" s odpočtem. Když ho vynecháš, řádek se nezobrazí. |
+| `done_entity` | Přidá tlačítko „Označit jako vyneseno" a pruh s připomínkou nad ním. |
+| `calendar_path` | Zobrazí tlačítko kalendáře v záhlaví, které přejde na zadanou cestu (např. `/calendar`). |
+| `alexa_settings_path` | Zobrazí tlačítko megafonu vedoucí na tvou stránku s nastavením hlasových oznámení. |
+| `legacy_settings_popup` | Použije popup z `browser_mod` místo nativního okna (viz níže). |
+| `name` | Nadpis karty (výchozí „Svoz odpadu"). |
+
+### Sdílená hlasová oznámení (volitelné, pokročilé)
+
+Package volá sdílený skript (`script.hlasove_oznameni_alexa` ze souboru `centrum_oznameni_alexa.yaml`) místo toho, aby se hlasitost/zařízení/prodleva duplikovaly v každé kartě: pokud máš další karty ze stejné rodiny (spotřebiče atd.), sdílejí všechny stejné nastavení Alexy, měnitelné na jednom místě. Když chceš i tlačítko megafonu, které na TU stránku vede, přidej do konfigurace karty:
 ```yaml
-alexa_settings_path: /lovelace/nome-della-tua-vista
+alexa_settings_path: /lovelace/nazev-tvoji-stranky
 ```
-sostituendo con il percorso di una tua vista/dashboard che contenga una card `entities` con gli helper di `centro_notifiche_alexa.yaml` (`input_datetime.orario_inizio/fine_notifiche_alexa`, `input_number.volume_alexa_notifica_elettrodomestici`, ecc.). Se non imposti `alexa_settings_path`, il pulsante semplicemente non compare — tutto il resto funziona lo stesso, con l'annuncio Alexa di default su `media_player.alexa_salone`.
+a nahraď cestou na svůj pohled/dashboard s kartou `entities` obsahující pomocníky z `centrum_oznameni_alexa.yaml` (`input_datetime.alexa_oznameni_zacatek/konec`, `input_number.alexa_hlasitost_oznameni` atd.). Když `alexa_settings_path` nenastavíš, tlačítko se prostě nezobrazí — všechno ostatní funguje stejně.
 
-### Se usi già browser_mod
+**Nemáš Alexu?** Přepni pomocníka „Svoz odpadu – hlasové hlášení" na `TTS` (a nahoře v `svoz_odpadu.yaml` nastav svůj reproduktor a TTS službu) nebo na `Vypnuto` — pak soubor `centrum_oznameni_alexa.yaml` vůbec nepotřebuješ.
 
-Se hai già l'integrazione HACS `browser_mod` e preferisci il suo popup invece della finestra nativa, puoi passare `legacy_settings_popup` al posto di `settings_sections`:
+### Pokud už používáš browser_mod
+
+Máš-li integraci `browser_mod` z HACS a preferuješ její popup před nativním oknem, předej `legacy_settings_popup` místo `settings_sections`:
 ```yaml
 legacy_settings_popup:
   service: browser_mod.popup
   data:
-    title: Giorni raccolta
+    title: Dny svozu
     content:
       type: entities
       entities:
-        - entity: input_select.raccolta_differenziata_lun
-        # ... gli altri 6 giorni
+        - entity: input_select.svoz_odpadu_po
+        # ... zbylých 6 dnů
 ```
 
-## Struttura del repository
+## Entity, které package vytvoří
 
-- `dm-garbage-card.js` — la card, autoconsistente
-- `packages/differenziata.yaml` — helper, sensori e automazioni della raccolta differenziata
-- `packages/centro_notifiche_alexa.yaml` — script condiviso per gli annunci vocali Alexa (volume/ritardo/orario)
-- `www/rifiuti/` — le immagini di default dei rifiuti (ritagliate e ottimizzate)
-- `example/` — screenshot di questo README
+| Entita | K čemu je |
+|---|---|
+| `sensor.svoz_odpadu` | Co se má dnes večer vystavit (hlavní entita karty). Atributy: `svoz_dnes`, `plan_tydne`. |
+| `sensor.den_v_tydnu` | Název dnešního dne („Sobota"). |
+| `sensor.den_svozu` | Název zítřejšího dne = den svozu. |
+| `sensor.pristi_svoz` | Nejbližší svoz; atributy `za_dni`, `datum`, `popis`. |
+| `binary_sensor.dnes_vystavit_popelnici` | `on`, když se dnes večer vystavuje a ještě to není potvrzené. |
+| `input_select.svoz_odpadu_po … _ne` | Druh odpadu svážený v daný den. |
+| `input_boolean.svoz_odpadu_vyneseno` | Potvrzení, že je popelnice venku. |
+| `input_boolean.svoz_odpadu_k_oznameni` | Příznak „právě připomínat". |
+| `input_boolean.svoz_odpadu_vyskakovaci_oznameni` | Zapíná oznámení ve zvonečku HA. |
+| `input_boolean.svoz_odpadu_ranni_pripominka` | Zapíná ranní připomínku v den svozu. |
+| `input_boolean.svoz_odpadu_zapis_do_kalendare` | Zapíná zápis do kalendáře. |
+| `input_boolean.svoz_odpadu_test_oznameni` | Pošle testovací oznámení. |
+| `input_select.svoz_odpadu_hlasovy_kanal` | Vypnuto / Alexa / TTS. |
+| `input_number.frekvence_oznameni_svoz_odpadu` | Jak často připomínat (5–60 min). |
+| `input_datetime.svoz_odpadu_zacatek_oznameni` / `_konec_oznameni` | Časové okno připomínek. |
+| `input_datetime.svoz_odpadu_cas_ranni_pripominky` | Čas ranní připomínky. |
+| `input_datetime.svoz_odpadu_odlozeno_do` | Dokdy je připomínka odložená („Odložit o hodinu"). |
+| `script.svoz_odpadu_oznamit` | Pošle oznámení do všech kanálů (používají ho automatizace). |
+| `script.svoz_odpadu_potvrdit_vyneseni` | Potvrdí vynesení a uklidí oznámení. |
+
+## Struktura repozitáře
+
+- `dm-garbage-card.js` — karta, soběstačná
+- `packages/svoz_odpadu.yaml` — pomocníci, senzory, skripty a automatizace svozu odpadu
+- `packages/centrum_oznameni_alexa.yaml` — volitelný sdílený skript pro hlasová hlášení Alexy (hlasitost/prodleva/čas)
+- `www/odpad/` — výchozí obrázky odpadu (ořezané a optimalizované)
+- `example/` — snímky obrazovky do tohoto README
 
 ## Changelog
 
-- **18/09/2026**: riscrittura completa. Nuova card in stile DashboardModern (era una card `entities` + `button-card` via HACS); package pulito, niente più impostazioni Alexa duplicate (ora condivise via `centro_notifiche_alexa.yaml`, stesso meccanismo delle altre mie card); immagini dei rifiuti ritagliate sul soggetto e rese più nitide.
+- **19. 9. 2026**: česká verze. Přeložená karta, package i dokumentace; přejmenované entity a obrázky do češtiny. Novinky: zápis svozu do kalendáře, vyskakovací oznámení v HA, akční tlačítka „Vyneseno" / „Odložit o hodinu" v push notifikaci (včetně obrázku popelnice), tlačítko „Vyneseno" přímo na kartě, odpočet do příštího svozu (`sensor.pristi_svoz`), ranní připomínka v den svozu, hlasová hlášení i bez Alexy (TTS), obrázek pro směsný odpad, testovací přepínač přímo v packagu. Pomocníky pro dny už není potřeba posouvat o den — každý odpovídá dni, kdy se opravdu sváží.
+- **18. 9. 2026**: kompletní přepis. Nová karta ve stylu DashboardModern (dříve karta `entities` + `button-card` přes HACS); vyčištěný package, žádné duplicitní nastavení Alexy (teď sdílené přes `centrum_oznameni_alexa.yaml`, stejný mechanismus jako u ostatních mých karet); obrázky odpadu ořezané na motiv a zostřené.
 
-## ☕ Vuoi darmi una mano?
+## ☕ Chceš mi pomoct?
 
-Il contenuto di questa pagina è completamente gratuito e lo scopo non è certamente fare soldi. Se vuoi darmi una mano per le spese e il tempo perso, ecco alcuni modi:
-
-| | |
-|---|---|
-| [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/C0C713VTGJ) | Offrimi un caffè su Ko-fi |
-| [![PayPal](https://github.com/Simonz82/shared-assets/blob/main/paypal.svg)](https://www.paypal.com/paypalme/simongmail) | Una donazione libera su PayPal |
-| [![Amazon](https://github.com/Simonz82/shared-assets/blob/main/Amazon_logo.png)](https://amzn.to/3XWWTgz) | Fai i tuoi acquisti Amazon partendo da questo link |
-
-**Canali Telegram:**
+Obsah této stránky je úplně zdarma a cílem rozhodně není vydělávat. Pokud mi chceš pomoct s náklady a časem, tady je pár možností:
 
 | | |
 |---|---|
-| [![Home_Assistant_News](https://github.com/Simonz82/shared-assets/blob/main/home_assistant_news.jpg)](https://t.me/Home_Assistant_News) | Notizie dedicate a Home Assistant |
-| [![Offerte Domotica](https://github.com/Simonz82/shared-assets/blob/main/offerte_domotica.jpg)](https://t.me/offerte_domotica_ita) | Offerte sui prodotti di domotica |
+| [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/C0C713VTGJ) | Kup mi kafe na Ko-fi |
+| [![PayPal](https://github.com/Simonz82/shared-assets/blob/main/paypal.svg)](https://www.paypal.com/paypalme/simongmail) | Dobrovolný příspěvek přes PayPal |
+| [![Amazon](https://github.com/Simonz82/shared-assets/blob/main/Amazon_logo.png)](https://amzn.to/3XWWTgz) | Nakupuj na Amazonu přes tenhle odkaz |
+
+**Telegramové kanály:**
+
+| | |
+|---|---|
+| [![Home_Assistant_News](https://github.com/Simonz82/shared-assets/blob/main/home_assistant_news.jpg)](https://t.me/Home_Assistant_News) | Novinky o Home Assistantu |
+| [![Offerte Domotica](https://github.com/Simonz82/shared-assets/blob/main/offerte_domotica.jpg)](https://t.me/offerte_domotica_ita) | Slevy na produkty pro chytrou domácnost |
 
 ---
 
-Sviluppato e curato da [Simonz82](https://t.me/Simonz82) · © 2026
+Vyvíjí a spravuje [Simonz82](https://t.me/Simonz82) · © 2026
