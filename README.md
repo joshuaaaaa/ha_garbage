@@ -173,23 +173,4 @@ legacy_settings_popup:
 - **19. 9. 2026**: česká verze. Přeložená karta, package i dokumentace; přejmenované entity a obrázky do češtiny. Novinky: zápis svozu do kalendáře, vyskakovací oznámení v HA, akční tlačítka „Vyneseno" / „Odložit o hodinu" v push notifikaci (včetně obrázku popelnice), tlačítko „Vyneseno" přímo na kartě, odpočet do příštího svozu (`sensor.pristi_svoz`), ranní připomínka v den svozu, hlasová hlášení i bez Alexy (TTS), obrázek pro směsný odpad, testovací přepínač přímo v packagu. Pomocníky pro dny už není potřeba posouvat o den — každý odpovídá dni, kdy se opravdu sváží.
 - **18. 9. 2026**: kompletní přepis. Nová karta ve stylu DashboardModern (dříve karta `entities` + `button-card` přes HACS); vyčištěný package, žádné duplicitní nastavení Alexy (teď sdílené přes `centrum_oznameni_alexa.yaml`, stejný mechanismus jako u ostatních mých karet); obrázky odpadu ořezané na motiv a zostřené.
 
-## ☕ Chceš mi pomoct?
 
-Obsah této stránky je úplně zdarma a cílem rozhodně není vydělávat. Pokud mi chceš pomoct s náklady a časem, tady je pár možností:
-
-| | |
-|---|---|
-| [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/C0C713VTGJ) | Kup mi kafe na Ko-fi |
-| [![PayPal](https://github.com/Simonz82/shared-assets/blob/main/paypal.svg)](https://www.paypal.com/paypalme/simongmail) | Dobrovolný příspěvek přes PayPal |
-| [![Amazon](https://github.com/Simonz82/shared-assets/blob/main/Amazon_logo.png)](https://amzn.to/3XWWTgz) | Nakupuj na Amazonu přes tenhle odkaz |
-
-**Telegramové kanály:**
-
-| | |
-|---|---|
-| [![Home_Assistant_News](https://github.com/Simonz82/shared-assets/blob/main/home_assistant_news.jpg)](https://t.me/Home_Assistant_News) | Novinky o Home Assistantu |
-| [![Offerte Domotica](https://github.com/Simonz82/shared-assets/blob/main/offerte_domotica.jpg)](https://t.me/offerte_domotica_ita) | Slevy na produkty pro chytrou domácnost |
-
----
-
-Vyvíjí a spravuje [Simonz82](https://t.me/Simonz82) · © 2026
